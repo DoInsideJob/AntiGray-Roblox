@@ -24,6 +24,7 @@ echo.
 echo 1. Fix Roblox
 echo 2. Turn on autostart when Windows start
 echo 3. Turn off autostart
+echo 4. I'm lazy, just give me play Roblox
 echo 0. Exit
 echo.
 set /p "choice=Enter your choice: "
@@ -31,6 +32,7 @@ set /p "choice=Enter your choice: "
 if "%choice%"=="1" goto :fix
 if "%choice%"=="2" goto :autostart_on
 if "%choice%"=="3" goto :autostart_off
+if "%choice%"=="4" goto :fix_lazy
 if "%choice%"=="0" exit /b
 echo Invalid choice. Try again.
 timeout /t 2 >nul
@@ -41,15 +43,14 @@ cls
 echo === NSLookup to Hosts Editor ===
 echo.
 
-echo Running: nslookup tr.rbxcdn.com 9.9.9.9
-echo.
-nslookup tr.rbxcdn.com 9.9.9.9
-echo.
-
-:: Save nslookup output to temp file
+:: Run nslookup ONCE, save to temp file
 nslookup tr.rbxcdn.com 9.9.9.9 > "%temp%\ns_out.txt" 2>nul
 
-:: Collect all IPv4 addresses into a list
+:: Display the SAME output from file
+type "%temp%\ns_out.txt"
+echo.
+
+:: Collect all IPv4 addresses into a list from the SAME file
 set "ipcount=0"
 for /f "usebackq delims=" %%L in ("%temp%\ns_out.txt") do (
     call :check_line "%%L"
@@ -117,6 +118,56 @@ echo.
 pause
 goto :menu
 
+:fix_lazy
+cls
+echo === NSLookup to Hosts Editor ===
+echo.
+
+:: Run nslookup ONCE, save to temp file
+nslookup tr.rbxcdn.com 9.9.9.9 > "%temp%\ns_out.txt" 2>nul
+
+:: Display the SAME output
+type "%temp%\ns_out.txt"
+echo.
+
+:: Find first IPv4 address from the SAME file
+set "targetip="
+for /f "usebackq delims=" %%L in ("%temp%\ns_out.txt") do (
+    if not defined targetip call :check_line_lazy "%%L"
+)
+
+del "%temp%\ns_out.txt" >nul 2>&1
+
+if not defined targetip (
+    echo Error: No IPv4 address found.
+    echo.
+    pause
+    goto :menu
+)
+
+echo Found IP: %targetip%
+echo.
+
+set "hostsfile=%SystemRoot%\System32\drivers\etc\hosts"
+set "tempfile=%temp%\hosts_tmp"
+
+:: Remove old entry if exists
+findstr /i /c:"tr.rbxcdn.com" "%hostsfile%" >nul 2>&1
+if %errorlevel% equ 0 (
+    findstr /i /v /c:"tr.rbxcdn.com" "%hostsfile%" > "%tempfile%"
+    copy /y "%tempfile%" "%hostsfile%" >nul 2>&1
+    del "%tempfile%" >nul 2>&1
+)
+
+:: Append new entry
+echo %targetip% tr.rbxcdn.com>> "%hostsfile%"
+
+echo Successfully added to hosts:
+echo %targetip% tr.rbxcdn.com
+echo.
+pause
+goto :menu
+
 :fix_silent
 :: %2 = IP index number chosen during autostart setup
 set "ipindex=%~2"
@@ -125,15 +176,15 @@ if not defined ipindex set "ipindex=1"
 cls
 echo === NSLookup to Hosts Editor ===
 echo.
-echo Running: nslookup tr.rbxcdn.com 9.9.9.9
-echo.
-nslookup tr.rbxcdn.com 9.9.9.9
-echo.
 
-:: Save nslookup output to temp file
+:: Run nslookup ONCE, save to temp file
 nslookup tr.rbxcdn.com 9.9.9.9 > "%temp%\ns_out.txt" 2>nul
 
-:: Collect all IPv4 addresses into a list
+:: Display the SAME output
+type "%temp%\ns_out.txt"
+echo.
+
+:: Collect all IPv4 addresses into a list from the SAME file
 set "ipcount=0"
 for /f "usebackq delims=" %%L in ("%temp%\ns_out.txt") do (
     call :check_line "%%L"
@@ -190,15 +241,15 @@ if exist "%startup%\RobloxFixer.bat" (
 
 echo === Select IP for Autostart ===
 echo.
-echo Running: nslookup tr.rbxcdn.com 9.9.9.9
-echo.
-nslookup tr.rbxcdn.com 9.9.9.9
-echo.
 
-:: Save nslookup output to temp file
+:: Run nslookup ONCE, save to temp file
 nslookup tr.rbxcdn.com 9.9.9.9 > "%temp%\ns_out.txt" 2>nul
 
-:: Collect all IPv4 addresses into a list
+:: Display the SAME output
+type "%temp%\ns_out.txt"
+echo.
+
+:: Collect all IPv4 addresses into a list from the SAME file
 set "ipcount=0"
 for /f "usebackq delims=" %%L in ("%temp%\ns_out.txt") do (
     call :check_line "%%L"
@@ -293,6 +344,20 @@ for %%W in (!ln!) do (
             set /a "ipcount+=1"
             set "ip[!ipcount!]=%%W"
         )
+    )
+)
+exit /b
+
+:check_line_lazy
+set "ln=%~1"
+if "!ln!"=="" exit /b
+echo !ln!| findstr /i /b "Server:" >nul 2>&1 && exit /b
+echo !ln!| findstr /i /b /c:"Address: " >nul 2>&1 && exit /b
+for %%W in (!ln!) do (
+    echo %%W| findstr /r "^[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*$" >nul 2>&1
+    if not errorlevel 1 (
+        set "targetip=%%W"
+        exit /b
     )
 )
 exit /b
